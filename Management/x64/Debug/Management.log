@@ -1,3 +1,0 @@
-﻿  Management.cpp
-c:\users\felipe\documents\ufmg\atr\tp1_atr\management\management.cpp(23): warning C4101: 'dwReturn': variável local não referenciada
-  Management.vcxproj -> C:\Users\Felipe\Documents\UFMG\ATR\TP1_ATR\x64\Debug\Management.exe
