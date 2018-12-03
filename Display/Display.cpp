@@ -19,7 +19,7 @@ HANDLE l1Mutex, l2Mutex, hCLP, hPCP, hCapture, hProd, hTimer1, hTimer2, msgDepos
 #define _CHECKERROR	1		// Ativa função CheckForError
 #include "../Include/checkforerror.h"
 
-int offset = 0;
+int offset = 0, modo = 0;
 
 HANDLE hEscEvent,
 hEscThread;
@@ -49,6 +49,7 @@ int main() {
 	msgDepositada1 = CreateEvent(NULL, FALSE, FALSE, (LPCSTR)"Avisa que uma msg foi depositada na lista 1");
 	msgDepositada2 = CreateEvent(NULL, FALSE, FALSE, (LPCSTR)"Avisa que uma msg foi depositada na lista 2");
 
+
 	hCLP = (HANDLE)_beginthreadex(NULL, 0, (CAST_FUNCTION)ThreadCLP, NULL, 0, (CAST_LPDWORD)&dwIdCLP);
 	hPCP = (HANDLE)_beginthreadex(NULL, 0, (CAST_FUNCTION)ThreadPCP, NULL, 0, (CAST_LPDWORD)&dwIdPCP);
 	hCapture = (HANDLE)_beginthreadex(NULL, 0, (CAST_FUNCTION)ThreadCapture, NULL, 0, (CAST_LPDWORD)&dwIdCapture);
@@ -60,6 +61,8 @@ int main() {
 	semPCP = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "PCP");
 	semDisplay = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "Display");
 	semMessage = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "Message");
+
+
 	dwReturn = WaitForSingleObject(hEscThread, INFINITE);
 	CheckForError(dwReturn);
 
@@ -118,10 +121,19 @@ DWORD WINAPI ThreadCLP() {
 
 		sprintf_s(msg, "%06i/%06.1f/%06.1f/%06.1f/%05.1f/%05.1f/%04i/%02i:%02i:%02i", NSEQ, TZona1, TZona2, TZona3, volume, pressao, tempo, hora, minuto, segundos);
 		WaitForSingleObject(l1Mutex, INFINITE);
-		while (lista1.size() == 200) {
+
+		auto it = lista1.begin();
+
+		if (lista1.size() == 200) {
 			printf("Lista Ta cheia");
-			WaitForSingleObject(listaCheia, INFINITE);
-		}
+			ReleaseMutex(l1Mutex);
+		//	WaitForSingleObject(listaCheia, INFINITE);
+			while (lista1.size() > 180)
+				PulseEvent(msgDepositada1);
+			WaitForSingleObject(l1Mutex, INFINITE);
+
+		}		
+		
 		lista1.push_back(msg);
 		PulseEvent(msgDepositada1);
 		ReleaseMutex(l1Mutex);
@@ -166,10 +178,15 @@ DWORD WINAPI ThreadPCP() {
 
 		sprintf_s(msg, "%04i|%02i:%02i:%02i|%c%c%c%c%c%c%c%c|%04i|%c%c%c%c%c%c%c%c|%04i|%c%c%c%c%c%c%c%c|%04i", NSEQ, hora, minuto, segundos, op1_aux[0], op1_aux[1], op1_aux[2], op1_aux[3], op1_aux[4], op1_aux[5], op1_aux[6], op1_aux[7], slot1, op2_aux[0], op2_aux[1], op2_aux[2], op2_aux[3], op2_aux[4], op2_aux[5], op2_aux[6], op2_aux[7], slot2, op3_aux[0], op3_aux[1], op3_aux[2], op3_aux[3], op3_aux[4], op3_aux[5], op3_aux[6], op3_aux[7], slot3);
 		WaitForSingleObject(l1Mutex, INFINITE);
-		while (lista1.size() == 200) {
+		if (lista1.size() == 200) {
 			printf("Lista Ta cheia");
-			WaitForSingleObject(listaCheia, INFINITE);
+			//WaitForSingleObject(listaCheia, INFINITE);
+			ReleaseMutex(l1Mutex);
+			while (lista1.size() > 180)
+				PulseEvent(msgDepositada1);
+			WaitForSingleObject(l1Mutex, INFINITE);
 		}
+		
 		lista1.push_back(msg);
 		PulseEvent(msgDepositada1);
 		ReleaseMutex(l1Mutex);
@@ -219,8 +236,8 @@ DWORD WINAPI ThreadProd() {
 		WaitForSingleObject(msgDepositada2, INFINITE);
 
 		WaitForSingleObject(l2Mutex, INFINITE);
-		auto it = lista2.begin();
-		auto element = *it;
+		auto begin = lista2.begin();
+		auto element = *begin;
 		ostringstream ss;
 		ss << quoted(element);
 		string copy = ss.str();
@@ -235,7 +252,7 @@ DWORD WINAPI ThreadProd() {
 		hora = copy.substr(46, 8);
 
 		cout << "NSEQ:" << nseq << " " << hora << " TZ1:" << temp1 << " TZ2:" << temp2 << " TZ3:" << temp3 << " V:" << volume << " P:" << pressao << " Tempo:" << tempo << endl;
-		lista2.erase(it);
+		lista2.erase(begin);
 		ReleaseMutex(l2Mutex);
 		ReleaseSemaphore(semDisplay, 1, NULL);
 	}
