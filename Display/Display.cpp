@@ -1,15 +1,14 @@
 #include <windows.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <process.h>	// _beginthreadex() e _endthreadex() 
-#include <conio.h>		// _getch
 #include <iostream>
+#include <stdlib.h>
 #include <sstream>
 #include <string.h>
 #include <list>
 #include <iomanip>
 #include <time.h>
-
+#include <stdlib.h>
+#include <process.h>				//_beginthreadex() e _endthreadex()
 using namespace std;
 
 typedef unsigned (WINAPI *CAST_FUNCTION)(LPVOID);	//Casting para terceiro e sexto parâmetros da função
@@ -17,64 +16,48 @@ typedef unsigned *CAST_LPDWORD;
 
 list <string> lista1, lista2;
 HANDLE l1Mutex, l2Mutex, hCLP, hPCP, hCapture, hProd, hTimer1, hTimer2, msgDepositada1, msgDepositada2, listaCheia, semCLP, semPCP;
-
-DWORD WINAPI ThreadCLP();		    //Thread representando leitura de CLP
-DWORD WINAPI ThreadPCP();		    //Thread representando leitura de CLP
-DWORD WINAPI ThreadCapture();			//Thread representando carro
-DWORD WINAPI ThreadProd();		    //Thread representando leitura de CLP
-
 #define _CHECKERROR	1		// Ativa função CheckForError
 #include "../Include/checkforerror.h"
 
 
 HANDLE hEscEvent,
-	   hEscThread;
+hEscThread;
 
 DWORD WINAPI EscFunc();	// declaração da função
-
+DWORD WINAPI ThreadCLP();		    //Thread representando leitura de CLP
+DWORD WINAPI ThreadPCP();		    //Thread representando leitura de CLP
+DWORD WINAPI ThreadCapture();			//Thread representando carro
+DWORD WINAPI ThreadProd();		    //Thread representando leitura de CLP
 int main() {
 	system("chcp 1252"); // Comando para apresentar caracteres especiais no console
+	
 	DWORD dwIdCLP, dwIdPCP, dwIdCapture, dwIdProd;
 	DWORD dwReturn,
-		  dwExitCode,
-		  dwThreadId;
-
+		dwExitCode,
+		dwThreadId;
 
 	l1Mutex = CreateMutex(NULL, FALSE, (LPCSTR)"Mutex da lista 1");
-	CheckForError(l1Mutex);
 	l2Mutex = CreateMutex(NULL, FALSE, (LPCSTR) "Mutex da lista 2");
-	CheckForError(l2Mutex);
+
 	listaCheia = CreateSemaphore(NULL, 0, 1, (LPCSTR) "Semaforo");
-	CheckForError(listaCheia);
 
 	hTimer1 = CreateEvent(NULL, FALSE, FALSE, (LPCSTR)"Timer da Tarefa CLP");
-	CheckForError(hTimer1);
 	hTimer2 = CreateEvent(NULL, FALSE, FALSE, (LPCSTR)"Timer da Tarefa PCP");
-	CheckForError(hTimer2);
 	msgDepositada1 = CreateEvent(NULL, FALSE, FALSE, (LPCSTR)"Avisa que uma msg foi depositada na lista 1");
-	CheckForError(msgDepositada1);
 	msgDepositada2 = CreateEvent(NULL, FALSE, FALSE, (LPCSTR)"Avisa que uma msg foi depositada na lista 2");
-	CheckForError(msgDepositada2);
 
 	hCLP = (HANDLE)_beginthreadex(NULL, 0, (CAST_FUNCTION)ThreadCLP, NULL, 0, (CAST_LPDWORD)&dwIdCLP);
-	CheckForError(hCLP);
 	hPCP = (HANDLE)_beginthreadex(NULL, 0, (CAST_FUNCTION)ThreadPCP, NULL, 0, (CAST_LPDWORD)&dwIdPCP);
-	CheckForError(hPCP);
 	hCapture = (HANDLE)_beginthreadex(NULL, 0, (CAST_FUNCTION)ThreadCapture, NULL, 0, (CAST_LPDWORD)&dwIdCapture);
-	CheckForError(hCapture);
 	hProd = (HANDLE)_beginthreadex(NULL, 0, (CAST_FUNCTION)ThreadProd, NULL, 0, (CAST_LPDWORD)&dwIdProd);
-	CheckForError(hProd);
 	hEscThread = (HANDLE)_beginthreadex(NULL, 0, (CAST_FUNCTION)EscFunc, NULL, 0, (CAST_LPDWORD)&dwThreadId);
 	CheckForError(hEscThread);
 
-	semCLP = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "CLP");
-	semPCP = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "PCP");
-	
 	dwReturn = WaitForSingleObject(hEscThread, INFINITE);
-	//CheckForError(dwReturn);
+	CheckForError(dwReturn);
 
 	dwReturn = GetExitCodeThread(hEscThread, &dwExitCode);
-	//CheckForError(dwReturn);
+	CheckForError(dwReturn);
 
 	CloseHandle(hCLP);
 	CloseHandle(hCapture);
@@ -84,7 +67,9 @@ int main() {
 	CloseHandle(l2Mutex);
 	CloseHandle(hEscThread);
 
+
 	return EXIT_SUCCESS;
+
 }
 
 DWORD WINAPI EscFunc() {
@@ -99,8 +84,6 @@ DWORD WINAPI EscFunc() {
 	ExitProcess(EXIT_SUCCESS);
 }
 
-
-
 DWORD WINAPI ThreadCLP() {
 	int NSEQ = 1, tempo, hora, minuto, segundos;
 	float TZona1, TZona2, TZona3, volume, pressao;
@@ -111,7 +94,6 @@ DWORD WINAPI ThreadCLP() {
 	srand(time(NULL));
 
 	while (1) {
-		WaitForSingleObject(semCLP, INFINITE);
 		WaitForSingleObject(hTimer1, 500);
 		TZona1 = (rand() % 100000) / 10;
 		TZona2 = (rand() % 100000) / 10;
@@ -135,12 +117,14 @@ DWORD WINAPI ThreadCLP() {
 		PulseEvent(msgDepositada1);
 		ReleaseMutex(l1Mutex);
 		NSEQ++;
-		ReleaseSemaphore(semCLP, 1, NULL);
+
 
 	}
 
 	return NULL;
 }
+
+
 
 DWORD WINAPI ThreadPCP() {
 	int NSEQ = 1, slot1, slot2, slot3, hora, minuto, segundos, i = 0;
@@ -195,9 +179,6 @@ DWORD WINAPI ThreadCapture() {
 			const std::string& ref = *it;
 			std::string copy = *it;
 			if (quoted(ref)._Size == 53) {
-				while (lista2.size() == 100) {
-					WaitForSingleObject(listaCheia, INFINITE);
-				}
 				lista2.push_back(copy);
 			}
 			else if (quoted(ref)._Size == 55) {
@@ -233,7 +214,7 @@ DWORD WINAPI ThreadProd() {
 		tempo = copy.substr(41, 4);
 		hora = copy.substr(46, 8);
 
-		cout << "NSEQ:"<< nseq << " " << hora << " TZ1:" << temp1 << " TZ2:" << temp2 << " TZ3:" << temp3 << " V:" << volume << " P:" << pressao << " Tempo:" << tempo << endl;
+		cout << "NSEQ:" << nseq << " " << hora << " TZ1:" << temp1 << " TZ2:" << temp2 << " TZ3:" << temp3 << " V:" << volume << " P:" << pressao << " Tempo:" << tempo << endl;
 		ReleaseMutex(l2Mutex);
 	}
 	return 0;
