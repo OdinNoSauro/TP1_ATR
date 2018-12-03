@@ -66,11 +66,19 @@ int main() {
 	// Sinaliza que o mailslot foi criado
 	SetEvent(hMailslotEvent);
 
-	HANDLE semaphore = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "Display");
+	char sBuffer[54];
+	DWORD dwReadBytes;
+	HANDLE semaphore = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "Management");
 	do {
 		printf("\nWait no semáforo");
 		WaitForSingleObject(semaphore, INFINITE);
 		printf("\nPegou o semáforo");
+		if (hMailslot != INVALID_HANDLE_VALUE) {
+			bStatus = ReadFile(hMailslot, &sBuffer, sizeof(sBuffer), &dwReadBytes, NULL);
+			if (strcmp(sBuffer, "CLEAR") != 0) {
+				printf("\nMensagem recebida: %s", sBuffer);
+			}
+		}
 		printf("\nSoltou o semáforo");
 		ReleaseSemaphore(semaphore, 1, NULL);
 	} while (true);
@@ -111,14 +119,14 @@ DWORD WINAPI ClearFunc() {
 	char sBuffer[6];
 	DWORD dwReadBytes;
 
-	do {
+	while (true) {
 		if (hMailslot != INVALID_HANDLE_VALUE) {
-			bStatus = ReadFile(hMailslot, &sBuffer, 6, &dwReadBytes, NULL);
+			bStatus = ReadFile(hMailslot, &sBuffer, 54, &dwReadBytes, NULL);
 			//CheckForError(bStatus);
 			if (strcmp(sBuffer, "CLEAR") == 0) {
 				printf("\nMensagem recebida: %s", sBuffer);
 				system("cls");
 			}
 		}
-	} while (true);
+	}
 }
