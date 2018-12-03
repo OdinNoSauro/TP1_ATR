@@ -14,15 +14,17 @@ typedef unsigned *CAST_LPDWORD;
 
 #define	ESC			0x1B
 
-HANDLE hCLPSemaphore,				// Handle para semáforo da tarefa de leitura do CLP
-	   hPCPSemaphore,				// Handle para semáforo da tarefa de leitura do PCP
-	   hMessageSemaphore,			// Handle para semáforo da tarefa de retirada de mensagens
-       hManagementSemaphore,		// Handle para semáforo da tarefa de gestão da produção
-	   hDisplaySemaphore,			// Handle para semáforo da tarefa de exibição de eventos
-	   hEscEvent,					// Handle para evento que aborta a execução
-	   hMailslotEvent,				// Handle para evento de sincronização mailslot
-	   hTimer,						// Handle para timer
-	   hMailslot;					// Handle para mailslot
+HANDLE  hCLPSemaphore,				// Handle para semáforo da tarefa de leitura do CLP
+		hPCPSemaphore,				// Handle para semáforo da tarefa de leitura do PCP
+		hMessageSemaphore,			// Handle para semáforo da tarefa de retirada de mensagens
+		hManagementSemaphore,		// Handle para semáforo da tarefa de gestão da produção
+		hDisplaySemaphore,			// Handle para semáforo da tarefa de exibição de eventos
+		hEscEvent,					// Handle para evento que aborta a execução
+		hMailslotEvent,				// Handle para evento de sincronização mailslot
+		hTimer,						// Handle para timer
+		hMailslot,					// Handle para mailslot
+		hLista1Cheia,
+		hLista2Cheia;
 int main() {
 	system("chcp 1252");			// Comando para apresentar caracteres especiais no console
 	//HANDLE hThread;
@@ -45,6 +47,10 @@ int main() {
 	CheckForError(hEscEvent);
 	hMailslotEvent = CreateEvent(NULL, TRUE, FALSE, "MailslotEvent");
 	CheckForError(hMailslotEvent);
+	hLista1Cheia = CreateEvent(NULL, FALSE, FALSE, "Lista1Cheia");
+	CheckForError(hLista1Cheia);
+	hLista2Cheia = CreateEvent(NULL, FALSE, FALSE, "Lista2Cheia");
+	CheckForError(hLista2Cheia);
 
 	// Criação dos semáforos
 	hCLPSemaphore = CreateSemaphore(NULL, 1, 1, "CLP");
@@ -186,7 +192,6 @@ int main() {
 			printf("Tecla inválida\n");
 		}
 	} while (nKey != ESC);
-
 	// Fecha handles dos processos
 	CloseHandle(npDisplay.hProcess);
 	CloseHandle(npDisplay.hThread);

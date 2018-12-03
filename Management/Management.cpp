@@ -4,21 +4,21 @@
 #include <process.h>	// _beginthreadex() e _endthreadex() 
 #include <conio.h>		// _getch
 
-#define _CHECKERROR	1		// Ativa função CheckForError
+#define _CHECKERROR	1		// Ativa funÃ§Ã£o CheckForError
 #include "../Include/checkforerror.h"
 
-// Casting para terceiro e sexto parâmetros da função _beginthreadex
+// Casting para terceiro e sexto parÃ¢metros da funÃ§Ã£o _beginthreadex
 typedef unsigned (WINAPI *CAST_FUNCTION)(LPVOID);
 typedef unsigned *CAST_LPDWORD;
 
-HANDLE hEscEvent,					// Handle para evento que aborta a execução
-	   hMailslotEvent,				// Handle para evento de sincronização mailslot
+HANDLE hEscEvent,					// Handle para evento que aborta a execuÃ§Ã£o
+	   hMailslotEvent,				// Handle para evento de sincronizaÃ§Ã£o mailslot
 	   hMailslot,					// Handle para mailslot
 	   hEscThread,
 	   hMailslotThread;
 
-DWORD WINAPI EscFunc();	// declaração da função
-DWORD WINAPI ClearFunc();	// declaração da função
+DWORD WINAPI EscFunc();	// declaraÃ§Ã£o da funÃ§Ã£o
+DWORD WINAPI ClearFunc();	// declaraÃ§Ã£o da funÃ§Ã£o
 
 int main() {
 	system("chcp 1252"); // Comando para apresentar caracteres especiais no console
@@ -30,28 +30,28 @@ int main() {
 
 	printf("Processo management");
 
-	// Pega o handle para o evento de sincronização do mailslot
+	// Pega o handle para o evento de sincronizaÃ§Ã£o do mailslot
 	hMailslotEvent = OpenEvent(EVENT_MODIFY_STATE, FALSE, "MailslotEvent");
 
 	hEscThread = (HANDLE)_beginthreadex(
 		NULL,
 		0,
-		(CAST_FUNCTION)EscFunc,	// casting necessário
+		(CAST_FUNCTION)EscFunc,	// casting necessÃ¡rio
 		NULL,
 		0,
-		(CAST_LPDWORD)&dwThreadId	// casting necessário
+		(CAST_LPDWORD)&dwThreadId	// casting necessÃ¡rio
 	);
 
 	hMailslotThread = (HANDLE)_beginthreadex(
 		NULL,
 		0,
-		(CAST_FUNCTION)ClearFunc,	// casting necessário
+		(CAST_FUNCTION)ClearFunc,	// casting necessÃ¡rio
 		NULL,
 		0,
-		(CAST_LPDWORD)&dwThreadId	// casting necessário
+		(CAST_LPDWORD)&dwThreadId	// casting necessÃ¡rio
 	);
 
-	// Criação do mailslot
+	// CriaÃ§Ã£o do mailslot
 	hMailslot = CreateMailslot(
 		"\\\\.\\mailslot\\ManagementMailslot",
 		0,
@@ -59,7 +59,7 @@ int main() {
 		NULL);
 	CheckForError(hMailslot != INVALID_HANDLE_VALUE);
 
-	// A função de leitura retorna imediatamente se não houver mensagens
+	// A funÃ§Ã£o de leitura retorna imediatamente se nÃ£o houver mensagens
 	//bStatus = SetMailslotInfo(hMailslot, 0);
 	//CheckForError(bStatus);
 
@@ -68,18 +68,19 @@ int main() {
 
 	char sBuffer[54];
 	DWORD dwReadBytes;
+
 	HANDLE semaphore = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "Management");
 	do {
-		printf("\nWait no semáforo");
+		printf("\nWait no semÃ¡foro");
 		WaitForSingleObject(semaphore, INFINITE);
-		printf("\nPegou o semáforo");
+		printf("\nPegou o semÃ¡foro");
 		if (hMailslot != INVALID_HANDLE_VALUE) {
 			bStatus = ReadFile(hMailslot, &sBuffer, sizeof(sBuffer), &dwReadBytes, NULL);
 			if (strcmp(sBuffer, "CLEAR") != 0) {
 				printf("\nMensagem recebida: %s", sBuffer);
 			}
 		}
-		printf("\nSoltou o semáforo");
+		printf("\nSoltou o semÃ¡foro");
 		ReleaseSemaphore(semaphore, 1, NULL);
 	} while (true);
 	
@@ -93,11 +94,11 @@ int main() {
 
 	dwReturn = GetExitCodeThread(hEscThread, &dwExitCode);
 	CheckForError(dwReturn);
-	CloseHandle(hEscThread);	// apaga referência ao objeto
+	CloseHandle(hEscThread);	// apaga referÃªncia ao objeto
 
 	printf("\nFechou handles");
 	printf("\nAcione uma tecla para terminar\n");
-	_getch(); // Pare aqui, caso não esteja executando no ambiente MDS
+	_getch(); // Pare aqui, caso nÃ£o esteja executando no ambiente MDS
 
 	return EXIT_SUCCESS;
 }
