@@ -64,28 +64,40 @@ int main() {
 		0,
 		MAILSLOT_WAIT_FOREVER,
 		NULL);
-	CheckForError(hMailslot != INVALID_HANDLE_VALUE);
+	//CheckForError(hMailslot != INVALID_HANDLE_VALUE);
 
 	// Sinaliza que o mailslot foi criado
 	SetEvent(hMailslotEvent);
 
-	char sBuffer[55];
+	
+	string s;
 	DWORD dwReadBytes;
 	//string sBuffer;
 	HANDLE semaphore = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "Management");
 	do {
+		char *sBuffer = (char*)malloc(58 * sizeof(char));
+		int i;
+		for (i = 0; i < 57; i++) {
+			sBuffer[i] = '0';
+		}
+		sBuffer[i] = '\0';
 		printf("\nWait no semáforo");
 		WaitForSingleObject(semaphore, INFINITE);
 		printf("\nPegou o semáforo");
 		if (hMailslot != INVALID_HANDLE_VALUE) {
-			//cout << "\nVai ler do mailslot" << endl;
-			bStatus = ReadFile(hMailslot, &sBuffer, sizeof(sBuffer), &dwReadBytes, NULL);
-			//cout << "\nMensagem recebida: " << sBuffer << endl;
-			if (strcmp(sBuffer, "CLEAR") != 0) {
-				printf("\nMensagem recebida: %s", sBuffer);
+		
+		//cout << "\nVai ler do mailslot" << endl;
+
+			if ((bStatus = ReadFile(hMailslot, sBuffer, 58, &dwReadBytes, NULL))!=0) {
+				printf("\n%s	%i	\n", sBuffer,dwReadBytes);
+				//cout << "\nMensagem recebida: " << sBuffer << endl;
+				delete[] sBuffer;
 			}
+
+		
 		}
-		printf("\nSoltou o semáforo");
+		
+		printf("Soltou o semáforo");
 		ReleaseSemaphore(semaphore, 1, NULL);
 	} while (true);
 	

@@ -82,7 +82,7 @@ int main() {
 	semPCP = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "PCP");
 	semDisplay = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "Display");
 	semMessage = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "Message");
-
+	hMailslotEvent = OpenEvent(SYNCHRONIZE, FALSE, "MailslotEvent");
 	// Aguarda que o mailslot seja criado pelo processo Management
 	printf("Aguardando criação do mailslot\n");
 	WaitForSingleObject(hMailslotEvent, INFINITE);
@@ -318,7 +318,6 @@ DWORD WINAPI ThreadPCP() {
 		WaitForSingleObject(l1Mutex, INFINITE);
 		if (lista1.size() == 200) {
 			printf("\nLista 1 cheia");
-			//WaitForSingleObject(listaCheia, INFINITE);
 			ReleaseMutex(l1Mutex);
 			while (lista1.size() > 180)
 				PulseEvent(msgDepositada1);
@@ -339,8 +338,6 @@ DWORD WINAPI ThreadCapture() {
 	HANDLE h[] = { l1Mutex,l2Mutex };
 	BOOL bStatus;
 	DWORD dwSentBytes;
-	ostringstream ss;
-	string s;
 
 	string nseq,
 		   temp1,
@@ -360,16 +357,18 @@ DWORD WINAPI ThreadCapture() {
 			printf("\nLista 2 cheia");
 		}
 		auto it = lista1.begin();
-		const string& ref = *it;
-		string copy = *it;
+		const std::string& ref = *it;
+		auto copy = *it;
+		
 		if (quoted(ref)._Size == 53) {
 			lista2.push_back(copy);
 			PulseEvent(msgDepositada2);
 			lista1.erase(it);
 		}
 		else if (quoted(ref)._Size == 55) {
-			ss << quoted(copy);
-			s = ss.str();
+			ostringstream ss1;
+			ss1 << quoted(copy);
+			string s = ss1.str();
 
 			nseq = s.substr(1, 6);
 			temp1 = s.substr(8, 6);
@@ -380,11 +379,14 @@ DWORD WINAPI ThreadCapture() {
 			tempo = s.substr(41, 4);
 			hora = s.substr(46, 8);
 
-			cout << "NSEQ:" << nseq << " " << hora << " TZ1:" << temp1 << " TZ2:" << temp2 << " TZ3:" << temp3 << " V:" << volume << " P:" << pressao << " Tempo:" << tempo << endl;
-
-			const char* msg = s.c_str();
-			bStatus = WriteFile(hMailslot, &msg, sizeof(msg), &dwSentBytes, NULL);
+			//cout << "NSEQ:" << nseq << " " << hora << " TZ1:" << temp1 << " TZ2:" << temp2 << " TZ3:" << temp3 << " V:" << volume << " P:" << pressao << " Tempo:" << tempo << endl;
+			char * msg = new char[s.size() + 1];
+			std::copy(s.begin(), s.end(), msg);
+			msg[s.size()] = '\0'; // don't forget the terminating
+			printf("%s\n",msg);
+		//	bStatus = WriteFile(hMailslot, msg, 58, &dwSentBytes, NULL);
 			//CheckForError(bStatus);
+			delete[] msg;
 			lista1.erase(it);	
 		}
 		ReleaseMutex(l1Mutex);
@@ -426,7 +428,7 @@ DWORD WINAPI ThreadProd() {
 		tempo = copy.substr(41, 4);
 		hora = copy.substr(46, 8);
 
-		//cout << "NSEQ:" << nseq << " " << hora << " TZ1:" << temp1 << " TZ2:" << temp2 << " TZ3:" << temp3 << " V:" << volume << " P:" << pressao << " Tempo:" << tempo << endl;
+		cout << "NSEQ:" << nseq << " " << hora << " TZ1:" << temp1 << " TZ2:" << temp2 << " TZ3:" << temp3 << " V:" << volume << " P:" << pressao << " Tempo:" << tempo << endl;
 		lista2.erase(begin);
 		ReleaseMutex(l2Mutex);
 		ReleaseSemaphore(semDisplay, 1, NULL);
