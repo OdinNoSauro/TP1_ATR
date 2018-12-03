@@ -19,6 +19,7 @@ HANDLE l1Mutex, l2Mutex, hCLP, hPCP, hCapture, hProd, hTimer1, hTimer2, msgDepos
 #define _CHECKERROR	1		// Ativa função CheckForError
 #include "../Include/checkforerror.h"
 
+int offset = 0;
 
 HANDLE hEscEvent,
 hEscThread;
@@ -118,6 +119,7 @@ DWORD WINAPI ThreadCLP() {
 		sprintf_s(msg, "%06i/%06.1f/%06.1f/%06.1f/%05.1f/%05.1f/%04i/%02i:%02i:%02i", NSEQ, TZona1, TZona2, TZona3, volume, pressao, tempo, hora, minuto, segundos);
 		WaitForSingleObject(l1Mutex, INFINITE);
 		while (lista1.size() == 200) {
+			printf("Lista Ta cheia");
 			WaitForSingleObject(listaCheia, INFINITE);
 		}
 		lista1.push_back(msg);
@@ -165,6 +167,7 @@ DWORD WINAPI ThreadPCP() {
 		sprintf_s(msg, "%04i|%02i:%02i:%02i|%c%c%c%c%c%c%c%c|%04i|%c%c%c%c%c%c%c%c|%04i|%c%c%c%c%c%c%c%c|%04i", NSEQ, hora, minuto, segundos, op1_aux[0], op1_aux[1], op1_aux[2], op1_aux[3], op1_aux[4], op1_aux[5], op1_aux[6], op1_aux[7], slot1, op2_aux[0], op2_aux[1], op2_aux[2], op2_aux[3], op2_aux[4], op2_aux[5], op2_aux[6], op2_aux[7], slot2, op3_aux[0], op3_aux[1], op3_aux[2], op3_aux[3], op3_aux[4], op3_aux[5], op3_aux[6], op3_aux[7], slot3);
 		WaitForSingleObject(l1Mutex, INFINITE);
 		while (lista1.size() == 200) {
+			printf("Lista Ta cheia");
 			WaitForSingleObject(listaCheia, INFINITE);
 		}
 		lista1.push_back(msg);
@@ -184,26 +187,20 @@ DWORD WINAPI ThreadCapture() {
 		WaitForSingleObject(msgDepositada1, INFINITE);
 		HANDLE h[] = { l1Mutex,l2Mutex };
 		WaitForMultipleObjects(2, h, TRUE, INFINITE);
-		auto it = lista1.end();
-		it--;
-		/*while (it != lista1.end()) {
-			const std::string& ref = *it;
-			std::string copy = *it;
-			if (quoted(ref)._Size == 53) {
-				lista2.push_back(copy);
-			}
-			else if (quoted(ref)._Size == 55) {
-				//comunicação mailslot
-			}
-			it++;
-		}*/
+
+		while (lista2.size() == 100) {
+			printf("Lista Ta cheia");
+		}
+		auto it = lista1.begin();
 		const std::string& ref = *it;
 		std::string copy = *it;
 		if (quoted(ref)._Size == 53) {
 			lista2.push_back(copy);
 			PulseEvent(msgDepositada2);
+			lista1.erase(it);
 		}
 		else if (quoted(ref)._Size == 55) {
+			lista1.erase(it);
 			
 		}
 		ReleaseMutex(l1Mutex);
@@ -222,9 +219,10 @@ DWORD WINAPI ThreadProd() {
 		WaitForSingleObject(msgDepositada2, INFINITE);
 
 		WaitForSingleObject(l2Mutex, INFINITE);
-		auto it = lista2.back();
+		auto it = lista2.begin();
+		auto element = *it;
 		ostringstream ss;
-		ss << quoted(it);
+		ss << quoted(element);
 		string copy = ss.str();
 
 		nseq = copy.substr(1, 6);
@@ -237,6 +235,7 @@ DWORD WINAPI ThreadProd() {
 		hora = copy.substr(46, 8);
 
 		cout << "NSEQ:" << nseq << " " << hora << " TZ1:" << temp1 << " TZ2:" << temp2 << " TZ3:" << temp3 << " V:" << volume << " P:" << pressao << " Tempo:" << tempo << endl;
+		lista2.erase(it);
 		ReleaseMutex(l2Mutex);
 		ReleaseSemaphore(semDisplay, 1, NULL);
 	}
