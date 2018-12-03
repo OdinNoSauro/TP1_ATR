@@ -25,13 +25,13 @@ HANDLE  hCLPSemaphore,				// Handle para semáforo da tarefa de leitura do CLP
 		hMailslot,					// Handle para mailslot
 		hLista1Cheia,
 		hLista2Cheia;
+
 int main() {
 	system("chcp 1252");			// Comando para apresentar caracteres especiais no console
-	//HANDLE hThread;
 
-	//DWORD dwThreadId;
-	DWORD dwExitCode = 0,
+	DWORD dwExitCode,
 		  dwSentBytes;
+
 	PROCESS_INFORMATION npDisplay, npManagement;		// Informações sobre novo processo criado
 	STARTUPINFO siDisplay, siManagement;				// StartUpInformation para novo processo
 	BOOL bStatus;
@@ -47,9 +47,9 @@ int main() {
 	CheckForError(hEscEvent);
 	hMailslotEvent = CreateEvent(NULL, TRUE, FALSE, "MailslotEvent");
 	CheckForError(hMailslotEvent);
-	hLista1Cheia = CreateEvent(NULL, FALSE, FALSE, "Lista1Cheia");
+	hLista1Cheia = CreateEvent(NULL, FALSE, FALSE, "List1Full");
 	CheckForError(hLista1Cheia);
-	hLista2Cheia = CreateEvent(NULL, FALSE, FALSE, "Lista2Cheia");
+	hLista2Cheia = CreateEvent(NULL, FALSE, FALSE, "List2Full");
 	CheckForError(hLista2Cheia);
 
 	// Criação dos semáforos
@@ -201,6 +201,8 @@ int main() {
 	// Fecha handles dos eventos
 	CloseHandle(hEscEvent);
 	CloseHandle(hMailslotEvent);
+	CloseHandle(hLista1Cheia);
+	CloseHandle(hLista2Cheia);
 
 	// Fecha handles dos semáforos
 	CloseHandle(hCLPSemaphore);
