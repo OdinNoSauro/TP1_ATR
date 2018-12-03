@@ -14,24 +14,29 @@ typedef unsigned *CAST_LPDWORD;
 
 #define	ESC			0x1B
 
+DWORD WINAPI threadLista1Cheia();		    //Thread que faz o tratamento quando a lista 1 está cheia
+DWORD WINAPI threadLista2Cheia();			//Thread que faz o tratamento quando a lista 1 está cheia
+
 HANDLE  hCLPSemaphore,				// Handle para semáforo da tarefa de leitura do CLP
-		hPCPSemaphore,				// Handle para semáforo da tarefa de leitura do PCP
-		hMessageSemaphore,			// Handle para semáforo da tarefa de retirada de mensagens
-		hManagementSemaphore,		// Handle para semáforo da tarefa de gestão da produção
-		hDisplaySemaphore,			// Handle para semáforo da tarefa de exibição de eventos
-		hEscEvent,					// Handle para evento que aborta a execução
-		hMailslotEvent,				// Handle para evento de sincronização mailslot
-		hTimer,						// Handle para timer
-		hMailslot,					// Handle para mailslot
-		hLista1Cheia,
-		hLista2Cheia;
+hPCPSemaphore,				// Handle para semáforo da tarefa de leitura do PCP
+hMessageSemaphore,			// Handle para semáforo da tarefa de retirada de mensagens
+hManagementSemaphore,		// Handle para semáforo da tarefa de gestão da produção
+hDisplaySemaphore,			// Handle para semáforo da tarefa de exibição de eventos
+hEscEvent,					// Handle para evento que aborta a execução
+hMailslotEvent,				// Handle para evento de sincronização mailslot
+hTimer,						// Handle para timer
+hMailslot,					// Handle para mailslot
+hLista1Cheia,
+hLista2Cheia;
 int main() {
 	system("chcp 1252");			// Comando para apresentar caracteres especiais no console
 	//HANDLE hThread;
 
 	//DWORD dwThreadId;
 	DWORD dwExitCode = 0,
-		  dwSentBytes;
+		dwSentBytes,
+		dwLista1,
+		dwLista2;
 	PROCESS_INFORMATION npDisplay, npManagement;		// Informações sobre novo processo criado
 	STARTUPINFO siDisplay, siManagement;				// StartUpInformation para novo processo
 	BOOL bStatus;
@@ -47,10 +52,10 @@ int main() {
 	CheckForError(hEscEvent);
 	hMailslotEvent = CreateEvent(NULL, TRUE, FALSE, "MailslotEvent");
 	CheckForError(hMailslotEvent);
-	hLista1Cheia = CreateEvent(NULL, FALSE, FALSE, "Lista1Cheia");
-	CheckForError(hLista1Cheia);
-	hLista2Cheia = CreateEvent(NULL, FALSE, FALSE, "Lista2Cheia");
-	CheckForError(hLista2Cheia);
+	
+	
+	hLista1Cheia = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "Lista1Cheia");
+	hLista2Cheia = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "Lista2Cheia");
 
 	// Criação dos semáforos
 	hCLPSemaphore = CreateSemaphore(NULL, 1, 1, "CLP");
@@ -113,6 +118,10 @@ int main() {
 		FILE_ATTRIBUTE_NORMAL,
 		NULL);
 	CheckForError(hMailslot != INVALID_HANDLE_VALUE);
+
+	// Iniciando threads segundárias
+	hLista1Cheia = (HANDLE)_beginthreadex(NULL, 0, (CAST_FUNCTION)threadLista1Cheia, NULL, 0, (CAST_LPDWORD)&dwLista1);
+	hLista2Cheia = (HANDLE)_beginthreadex(NULL, 0, (CAST_FUNCTION)threadLista2Cheia, NULL, 0, (CAST_LPDWORD)&dwLista2);
 
 	do {
 		//system("cls");
@@ -201,6 +210,8 @@ int main() {
 	// Fecha handles dos eventos
 	CloseHandle(hEscEvent);
 	CloseHandle(hMailslotEvent);
+	CloseHandle(hLista1Cheia);
+	CloseHandle(hLista2Cheia);
 
 	// Fecha handles dos semáforos
 	CloseHandle(hCLPSemaphore);
@@ -216,4 +227,19 @@ int main() {
 	_getch(); // Pare aqui, caso não esteja executando no ambiente MDS
 
 	return EXIT_SUCCESS;
+}
+
+DWORD WINAPI  threadLista1Cheia() {
+	while (1) {
+		WaitForSingleObject(hLista1Cheia, INFINITE);
+		printf("A Lista 1 está cheia, As tarefas de leitura do CLP e PCP foram bloquadas.\nPara prosseguir retome a atividade da tarefa de retirada de mensagens");
+		ReleaseSemaphore(hLista1Cheia, 1, NULL);
+	}
+}
+
+DWORD WINAPI threadLista2Cheia() {
+	while (1) {
+		WaitForSingleObject(hLista2Cheia, INFINITE);
+		printf("A Lista 2 está cheia, a tarefa de retirada de mensagens foi bloquada.\nPara prosseguir retome a atividade da tarefa de exibição de dados do processo");
+	}
 }
