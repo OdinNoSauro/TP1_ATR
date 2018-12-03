@@ -11,21 +11,24 @@
 #include <process.h>				//_beginthreadex() e _endthreadex()
 using namespace std;
 
-typedef unsigned (WINAPI *CAST_FUNCTION)(LPVOID);	//Casting para terceiro e sexto par�metros da fun��o
+typedef unsigned (WINAPI *CAST_FUNCTION)(LPVOID);	//Casting para terceiro e sexto parâmetros da função
 typedef unsigned *CAST_LPDWORD;
+
 
 list <string> lista1, lista2;
 HANDLE l1Mutex, l2Mutex, hCLP, hPCP, hCapture, hProd, hTimer1, hTimer2, msgDepositada1, msgDepositada2, listaCheia, semCLP, semPCP, semDisplay, semMessage;
-#define _CHECKERROR	1		// Ativa fun��o CheckForError
+
+#define _CHECKERROR	1		// Ativa função CheckForError
 #include "../Include/checkforerror.h"
 
 int offset = 0, modo = 0;
 
 HANDLE hEscEvent,
-hEscThread;
+	   hEscThread,
+	   hMailslotEvent,
+	   hMailslot;
 
-
-DWORD WINAPI EscFunc();	// declara��o da fun��o
+DWORD WINAPI EscFunc();	// declaração da função
 DWORD WINAPI ThreadCLP();		    //Thread representando leitura de CLP
 DWORD WINAPI ThreadPCP();		    //Thread representando leitura de CLP
 DWORD WINAPI ThreadCapture();			//Thread representando carro
@@ -36,9 +39,12 @@ int main() {
 
 	DWORD dwIdCLP, dwIdPCP, dwIdCapture, dwIdProd;
 	DWORD dwReturn,
-		dwExitCode,
-		dwThreadId;
-
+		    dwExitCode,
+		    dwThreadId,
+        dwSentBytes;
+  
+  BOOL bStatus;
+  
 	l1Mutex = CreateMutex(NULL, FALSE, (LPCSTR)"Mutex da lista 1");
 	l2Mutex = CreateMutex(NULL, FALSE, (LPCSTR) "Mutex da lista 2");
 
@@ -48,7 +54,6 @@ int main() {
 	hTimer2 = CreateEvent(NULL, FALSE, FALSE, (LPCSTR)"Timer da Tarefa PCP");
 	msgDepositada1 = CreateEvent(NULL, FALSE, FALSE, (LPCSTR)"Avisa que uma msg foi depositada na lista 1");
 	msgDepositada2 = CreateEvent(NULL, FALSE, FALSE, (LPCSTR)"Avisa que uma msg foi depositada na lista 2");
-
 
 	hCLP = (HANDLE)_beginthreadex(NULL, 0, (CAST_FUNCTION)ThreadCLP, NULL, 0, (CAST_LPDWORD)&dwIdCLP);
 	hPCP = (HANDLE)_beginthreadex(NULL, 0, (CAST_FUNCTION)ThreadPCP, NULL, 0, (CAST_LPDWORD)&dwIdPCP);
@@ -63,8 +68,57 @@ int main() {
 	semMessage = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "Message");
 
 
+	// Aguarda que o mailslot seja criado pelo processo Management
+	printf("Aguardando criação do mailslot\n");
+	WaitForSingleObject(hMailslotEvent, INFINITE);
+
+	// Criação do pseudo-arquivo do mailslot
+	hMailslot = CreateFile(
+		"\\\\.\\mailslot\\ManagementMailslot",
+		GENERIC_WRITE,
+		FILE_SHARE_READ,
+		NULL,
+		OPEN_EXISTING,
+		FILE_ATTRIBUTE_NORMAL,
+		NULL);
+	//CheckForError(hMailslot != INVALID_HANDLE_VALUE);
+
+	int NSEQ = 1, tempo, hora, minuto, segundos;
+	float TZona1, TZona2, TZona3, volume, pressao;
+	char msg[54];
+	std::ostringstream ss;
+	time_t theTime;
+	struct tm atime;
+	srand(time(NULL));
+
+	HANDLE semaphore = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "Display");
+	do {
+		printf("\nWait no semáforo");
+		WaitForSingleObject(semaphore, INFINITE);
+		printf("\nPegou o semáforo");
+		TZona1 = (rand() % 100000) / 10;
+		TZona2 = (rand() % 100000) / 10;
+		TZona3 = (rand() % 100000) / 10;
+		volume = (rand() % 10000) / 10;
+		pressao = (rand() % 10000) / 10;
+		tempo = (rand() % 1000);
+
+		theTime = time(NULL);
+		localtime_s(&atime, &theTime);
+		hora = atime.tm_hour;
+		minuto = atime.tm_min;
+		segundos = atime.tm_sec;
+
+		sprintf_s(msg, "%06i/%06.1f/%06.1f/%06.1f/%05.1f/%05.1f/%04i/%02i:%02i:%02i", NSEQ, TZona1, TZona2, TZona3, volume, pressao, tempo, hora, minuto, segundos);
+		bStatus = WriteFile(hMailslot, &msg, sizeof(msg), &dwSentBytes, NULL);
+		CheckForError(bStatus);
+		printf("\nSoltou o semáforo");
+		ReleaseSemaphore(semaphore, 1, NULL);
+		Sleep(1000);
+	} while (true);
+
 	dwReturn = WaitForSingleObject(hEscThread, INFINITE);
-	CheckForError(dwReturn);
+	//CheckForError(dwReturn);
 
 	dwReturn = GetExitCodeThread(hEscThread, &dwExitCode);
 	CheckForError(dwReturn);
@@ -76,6 +130,14 @@ int main() {
 	CloseHandle(l1Mutex);
 	CloseHandle(l2Mutex);
 	CloseHandle(hEscThread);
+
+	CloseHandle(semaphore);
+
+	// Fecha handles dos eventos
+	CloseHandle(hMailslotEvent);
+
+	// Fecha handle do mailslot
+	CloseHandle(hMailslot);
 
 
 	return EXIT_SUCCESS;
