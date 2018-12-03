@@ -186,7 +186,6 @@ int main() {
 			printf("Tecla inválida\n");
 		}
 	} while (nKey != ESC);
-
 	// Fecha handles dos processos
 	CloseHandle(npDisplay.hProcess);
 	CloseHandle(npDisplay.hThread);
