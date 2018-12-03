@@ -15,7 +15,7 @@ typedef unsigned (WINAPI *CAST_FUNCTION)(LPVOID);	//Casting para terceiro e sext
 typedef unsigned *CAST_LPDWORD;
 
 list <string> lista1, lista2;
-HANDLE l1Mutex, l2Mutex, hCLP, hPCP, hCapture, hProd, hTimer1, hTimer2, msgDepositada1, msgDepositada2, listaCheia, semCLP, semPCP;
+HANDLE l1Mutex, l2Mutex, hCLP, hPCP, hCapture, hProd, hTimer1, hTimer2, msgDepositada1, msgDepositada2, listaCheia, semCLP, semPCP, semDisplay, semMessage;
 #define _CHECKERROR	1		// Ativa função CheckForError
 #include "../Include/checkforerror.h"
 
@@ -53,6 +53,10 @@ int main() {
 	hEscThread = (HANDLE)_beginthreadex(NULL, 0, (CAST_FUNCTION)EscFunc, NULL, 0, (CAST_LPDWORD)&dwThreadId);
 	CheckForError(hEscThread);
 
+	semCLP = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "CLP");
+	semPCP = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "PCP");
+	semDisplay = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "Display");
+	semMessage = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "Message");
 	dwReturn = WaitForSingleObject(hEscThread, INFINITE);
 	CheckForError(dwReturn);
 
@@ -94,6 +98,7 @@ DWORD WINAPI ThreadCLP() {
 	srand(time(NULL));
 
 	while (1) {
+		WaitForSingleObject(semCLP, INFINITE);
 		WaitForSingleObject(hTimer1, 500);
 		TZona1 = (rand() % 100000) / 10;
 		TZona2 = (rand() % 100000) / 10;
@@ -116,9 +121,9 @@ DWORD WINAPI ThreadCLP() {
 		lista1.push_back(msg);
 		PulseEvent(msgDepositada1);
 		ReleaseMutex(l1Mutex);
+		
 		NSEQ++;
-
-
+		ReleaseSemaphore(semCLP, 1, NULL);
 	}
 
 	return NULL;
@@ -136,6 +141,7 @@ DWORD WINAPI ThreadPCP() {
 	srand(time(NULL));
 
 	while (1) {
+		WaitForSingleObject(semPCP, INFINITE);
 		float wait_time = (rand() % 400 + 100) / 100;
 		WaitForSingleObject(hTimer2, 1000 * wait_time);
 		slot1 = (rand() % 10000);
@@ -165,17 +171,20 @@ DWORD WINAPI ThreadPCP() {
 
 
 		NSEQ++;
+		ReleaseSemaphore(semPCP, 1, NULL);
 	}
 	return 0;
 }
 
 DWORD WINAPI ThreadCapture() {
 	while (1) {
+		WaitForSingleObject(semMessage, INFINITE);
 		WaitForSingleObject(msgDepositada1, INFINITE);
 		HANDLE h[] = { l1Mutex,l2Mutex };
 		WaitForMultipleObjects(2, h, TRUE, INFINITE);
-		auto it = lista1.begin();
-		while (it != lista1.end()) {
+		auto it = lista1.end();
+		it--;
+		/*while (it != lista1.end()) {
 			const std::string& ref = *it;
 			std::string copy = *it;
 			if (quoted(ref)._Size == 53) {
@@ -185,10 +194,19 @@ DWORD WINAPI ThreadCapture() {
 				//comunicação mailslot
 			}
 			it++;
+		}*/
+		const std::string& ref = *it;
+		std::string copy = *it;
+		if (quoted(ref)._Size == 53) {
+			lista2.push_back(copy);
+			PulseEvent(msgDepositada2);
 		}
-		PulseEvent(msgDepositada2);
+		else if (quoted(ref)._Size == 55) {
+			//comunicação mailslot
+		}
 		ReleaseMutex(l1Mutex);
 		ReleaseMutex(l2Mutex);
+		ReleaseSemaphore(semMessage, 1, NULL);
 	}
 
 	return 0;
@@ -197,6 +215,8 @@ DWORD WINAPI ThreadCapture() {
 DWORD WINAPI ThreadProd() {
 	string nseq, temp1, temp2, temp3, volume, pressao, tempo, hora;
 	while (1) {
+		WaitForSingleObject(semDisplay, INFINITE);
+
 		WaitForSingleObject(msgDepositada2, INFINITE);
 
 		WaitForSingleObject(l2Mutex, INFINITE);
@@ -216,6 +236,7 @@ DWORD WINAPI ThreadProd() {
 
 		cout << "NSEQ:" << nseq << " " << hora << " TZ1:" << temp1 << " TZ2:" << temp2 << " TZ3:" << temp3 << " V:" << volume << " P:" << pressao << " Tempo:" << tempo << endl;
 		ReleaseMutex(l2Mutex);
+		ReleaseSemaphore(semDisplay, 1, NULL);
 	}
 	return 0;
 }
