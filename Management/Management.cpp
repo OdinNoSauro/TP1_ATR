@@ -68,11 +68,11 @@ int main() {
 
 	HANDLE semaphore = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "Management");
 	do {
-		/*printf("\nWait no semáforo");
+		printf("\nWait no semáforo");
 		WaitForSingleObject(semaphore, INFINITE);
 		printf("\nPegou o semáforo");
 		printf("\nSoltou o semáforo");
-		ReleaseSemaphore(semaphore, 1, NULL);*/
+		ReleaseSemaphore(semaphore, 1, NULL);
 	} while (true);
 	
 	CloseHandle(semaphore);

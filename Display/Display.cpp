@@ -21,9 +21,8 @@ HANDLE l1Mutex, l2Mutex, hCLP, hPCP, hCapture, hProd, hTimer1, hTimer2, msgDepos
 
 
 HANDLE hEscEvent,
-hEscThread,
-hMailslotEvent,
-hMailslot;
+hEscThread;
+
 
 DWORD WINAPI EscFunc();	// declaração da função
 DWORD WINAPI ThreadCLP();		    //Thread representando leitura de CLP
@@ -33,17 +32,6 @@ DWORD WINAPI ThreadProd();		    //Thread representando leitura de CLP
 int main() {
 	system("chcp 1252"); // Comando para apresentar caracteres especiais no console
 
-	WaitForSingleObject(hMailslotEvent, INFINITE);
-
-	// Criação do pseudo-arquivo do mailslot
-	hMailslot = CreateFile(
-		"\\\\.\\mailslot\\ManagementMailslot",
-		GENERIC_WRITE,
-		FILE_SHARE_READ,
-		NULL,
-		OPEN_EXISTING,
-		FILE_ATTRIBUTE_NORMAL,
-		NULL);
 
 	DWORD dwIdCLP, dwIdPCP, dwIdCapture, dwIdProd;
 	DWORD dwReturn,
@@ -84,9 +72,6 @@ int main() {
 	CloseHandle(l1Mutex);
 	CloseHandle(l2Mutex);
 	CloseHandle(hEscThread);
-	CloseHandle(hMailslotEvent);
-
-	CloseHandle(hMailslot);
 
 
 	return EXIT_SUCCESS;
@@ -194,7 +179,6 @@ DWORD WINAPI ThreadPCP() {
 }
 
 DWORD WINAPI ThreadCapture() {
-	DWORD dwSentBytes;
 	while (1) {
 		WaitForSingleObject(semMessage, INFINITE);
 		WaitForSingleObject(msgDepositada1, INFINITE);
@@ -220,9 +204,7 @@ DWORD WINAPI ThreadCapture() {
 			PulseEvent(msgDepositada2);
 		}
 		else if (quoted(ref)._Size == 55) {
-			const char* msg = copy.c_str();
-			//BOOL bStatus = WriteFile(hMailslot, msg, sizeof(msg), &dwSentBytes, NULL);
-			//CheckForError(bStatus);
+			
 		}
 		ReleaseMutex(l1Mutex);
 		ReleaseMutex(l2Mutex);
