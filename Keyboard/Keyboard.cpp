@@ -20,18 +20,21 @@ HANDLE  hCLPSemaphore,				// Handle para semáforo da tarefa de leitura do CLP
 		hManagementSemaphore,		// Handle para semáforo da tarefa de gestão da produção
 		hDisplaySemaphore,			// Handle para semáforo da tarefa de exibição de eventos
 		hEscEvent,					// Handle para evento que aborta a execução
-		hMailslotEvent,				// Handle para evento de sincronização mailslot
+		hPipeEventKeyboard,
+	    hPipeEventDisplay,			// Handle para evento de sincronização pipe
 		hTimer,						// Handle para timer
 		hMailslot,					// Handle para mailslot
 		hLista1Cheia,
-		hLista2Cheia;
+		hLista2Cheia,
+		hPipe;
+
 int main() {
 	system("chcp 1252");			// Comando para apresentar caracteres especiais no console
-	//HANDLE hThread;
 
-	//DWORD dwThreadId;
-	DWORD dwExitCode = 0,
+	DWORD dwExitCode,
 		  dwSentBytes;
+
+	LPTSTR lpszPipename = "\\\\.\\pipe\\ManagementPipe";
 	PROCESS_INFORMATION npDisplay, npManagement;		// Informações sobre novo processo criado
 	STARTUPINFO siDisplay, siManagement;				// StartUpInformation para novo processo
 	BOOL bStatus;
@@ -45,11 +48,13 @@ int main() {
 	// Criação dos eventos
 	hEscEvent = CreateEvent(NULL, TRUE, FALSE, "EscEvent");
 	CheckForError(hEscEvent);
-	hMailslotEvent = CreateEvent(NULL, TRUE, FALSE, "MailslotEvent");
-	CheckForError(hMailslotEvent);
-	hLista1Cheia = CreateEvent(NULL, FALSE, FALSE, "Lista1Cheia");
+	hPipeEventKeyboard = CreateEvent(NULL, TRUE, FALSE, "PipeEventKeyboard");
+	CheckForError(hPipeEventKeyboard);
+	hPipeEventDisplay = CreateEvent(NULL, TRUE, FALSE, "PipeEventDisplay");
+	CheckForError(hPipeEventDisplay);
+	hLista1Cheia = CreateEvent(NULL, FALSE, FALSE, "List1Full");
 	CheckForError(hLista1Cheia);
-	hLista2Cheia = CreateEvent(NULL, FALSE, FALSE, "Lista2Cheia");
+	hLista2Cheia = CreateEvent(NULL, FALSE, FALSE, "List2Full");
 	CheckForError(hLista2Cheia);
 
 	// Criação dos semáforos
@@ -97,22 +102,35 @@ int main() {
 	CheckForError(bStatus);
 
 	// Aguarda que o mailslot seja criado pelo processo Management
-	printf("Aguardando criação do mailslot\n");
-	WaitForSingleObject(hMailslotEvent, INFINITE);
+	//printf("Aguardando criação do mailslot\n");
+	//WaitForSingleObject(hMailslotEvent, INFINITE);
 
-	//hEscEvent = OpenEvent(SYNCHRONIZE | EVENT_MODIFY_STATE, FALSE, "EscEvent");
-	//CheckForError(hEscEvent);
+	// Aguarda que o pipe seja criado pelo processo Management
+	printf("Aguardando criação do pipe\n");
+	WaitForSingleObject(hPipeEventKeyboard, INFINITE);
 
 	// Criação do pseudo-arquivo do mailslot
-	hMailslot = CreateFile(
-		"\\\\.\\mailslot\\ManagementMailslot",
-		GENERIC_WRITE,
-		FILE_SHARE_READ,
-		NULL,
-		OPEN_EXISTING,
-		FILE_ATTRIBUTE_NORMAL,
-		NULL);
-	CheckForError(hMailslot != INVALID_HANDLE_VALUE);
+	//hMailslot = CreateFile(
+	//	"\\\\.\\mailslot\\ManagementMailslot",
+	//	GENERIC_WRITE,
+	//	FILE_SHARE_READ,
+	//	NULL,
+	//	OPEN_EXISTING,
+	//	FILE_ATTRIBUTE_NORMAL,
+	//	NULL);
+	//CheckForError(hMailslot != INVALID_HANDLE_VALUE);
+
+	hPipe = CreateFile(
+		lpszPipename,   // nome do pipe 
+		GENERIC_WRITE,  // acesso para escrita 
+		FILE_SHARE_WRITE,              // sem compartilhamento 
+		NULL,           // lpSecurityAttributes
+		OPEN_EXISTING,  // dwCreationDistribution 
+		0,              // dwFlagsAndAttributes 
+		NULL);          // hTemplate
+	//CheckForError(hPipe != INVALID_HANDLE_VALUE);
+
+	WaitNamedPipe(lpszPipename, NMPWAIT_USE_DEFAULT_WAIT);
 
 	do {
 		//system("cls");
@@ -182,7 +200,7 @@ int main() {
 		}
 		else if (nKey == 'c' || nKey == 'C') {
 			printf("Mensagem de limpeza de tela\n");
-			bStatus = WriteFile(hMailslot, "CLEAR", 6, &dwSentBytes, NULL);
+			bStatus = WriteFile(hPipe, "CLEAR", 6, &dwSentBytes, NULL);
 			CheckForError(bStatus);
 		}
 		else if (nKey == ESC) {
@@ -192,6 +210,8 @@ int main() {
 			printf("Tecla inválida\n");
 		}
 	} while (nKey != ESC);
+
+
 	// Fecha handles dos processos
 	CloseHandle(npDisplay.hProcess);
 	CloseHandle(npDisplay.hThread);
@@ -200,7 +220,10 @@ int main() {
 
 	// Fecha handles dos eventos
 	CloseHandle(hEscEvent);
-	CloseHandle(hMailslotEvent);
+	CloseHandle(hPipeEventKeyboard);
+	CloseHandle(hPipeEventDisplay);
+	CloseHandle(hLista1Cheia);
+	CloseHandle(hLista2Cheia);
 
 	// Fecha handles dos semáforos
 	CloseHandle(hCLPSemaphore);
@@ -210,7 +233,10 @@ int main() {
 	CloseHandle(hDisplaySemaphore);
 
 	// Fecha handle do mailslot
-	CloseHandle(hMailslot);
+	//CloseHandle(hMailslot);
+
+	// Fecha handle do Pipe
+	CloseHandle(hPipe);
 
 	printf("\nAcione uma tecla para terminar\n");
 	_getch(); // Pare aqui, caso não esteja executando no ambiente MDS
