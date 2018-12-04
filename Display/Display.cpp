@@ -40,7 +40,9 @@ HANDLE l1Mutex,
 	   hEscEvent,
 	   hEscThread,
 	   hMailslotEvent,
-	   hMailslot;
+	   hMailslot,
+	   hLista1Cheia,
+       hLista2Cheia;
 
 int offset = 0, modo = 0;
 
@@ -83,6 +85,8 @@ int main() {
 	semDisplay = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "Display");
 	semMessage = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "Message");
 	hMailslotEvent = OpenEvent(SYNCHRONIZE, FALSE, "MailslotEvent");
+	hLista1Cheia = OpenEvent(EVENT_MODIFY_STATE, FALSE, "Lista1Full");
+	hLista2Cheia = OpenEvent(EVENT_MODIFY_STATE, FALSE, "Lista2Full");
 	// Aguarda que o mailslot seja criado pelo processo Management
 	printf("Aguardando criação do mailslot\n");
 	WaitForSingleObject(hMailslotEvent, INFINITE);
@@ -256,9 +260,11 @@ DWORD WINAPI ThreadCLP() {
 		if (lista1.size() == 200) {
 			printf("\nLista 1 cheia");
 			ReleaseMutex(l1Mutex);
+			SetEvent(hLista1Cheia);
 		//	WaitForSingleObject(listaCheia, INFINITE);
 			while (lista1.size() > 180)
 				PulseEvent(msgDepositada1);
+			ResetEvent(hLista1Cheia);
 			WaitForSingleObject(l1Mutex, INFINITE);
 		}		
 		
