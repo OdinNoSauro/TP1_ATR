@@ -20,19 +20,16 @@ HANDLE  hCLPSemaphore,				// Handle para semáforo da tarefa de leitura do CLP
 		hManagementSemaphore,		// Handle para semáforo da tarefa de gestão da produção
 		hDisplaySemaphore,			// Handle para semáforo da tarefa de exibição de eventos
 		hEscEvent,					// Handle para evento que aborta a execução
-		hPipeEventKeyboard,
-	    hPipeEventDisplay,			// Handle para evento de sincronização pipe
-		hTimer,						// Handle para timer
-		hMailslot,					// Handle para mailslot
-		hLista1Cheia,
-		hLista2Cheia,
-		hPipe;
+		hPipeEventKeyboard,			// Handle para evento de sincronização do pipe com o processo Keyboard
+	    hPipeEventDisplay,			// Handle para evento de sincronização do pipe com o processo Display
+		hLista1Cheia,				// Handle para evento que sinaliza que a lista 1 está cheia
+		hLista2Cheia,				// Handle para evento que sinaliza que a lista 2 está cheia
+		hPipe;						// Handle para o pipe
 
 int main() {
 	system("chcp 1252");			// Comando para apresentar caracteres especiais no console
 
-	DWORD dwExitCode,
-		  dwSentBytes;
+	DWORD dwSentBytes;
 
 	LPTSTR lpszPipename = "\\\\.\\pipe\\ManagementPipe";
 	PROCESS_INFORMATION npDisplay, npManagement;		// Informações sobre novo processo criado
@@ -101,39 +98,24 @@ int main() {
 		&npManagement);					// lpProcessInformation
 	CheckForError(bStatus);
 
-	// Aguarda que o mailslot seja criado pelo processo Management
-	//printf("Aguardando criação do mailslot\n");
-	//WaitForSingleObject(hMailslotEvent, INFINITE);
-
 	// Aguarda que o pipe seja criado pelo processo Management
 	printf("Aguardando criação do pipe\n");
 	WaitForSingleObject(hPipeEventKeyboard, INFINITE);
 
-	// Criação do pseudo-arquivo do mailslot
-	//hMailslot = CreateFile(
-	//	"\\\\.\\mailslot\\ManagementMailslot",
-	//	GENERIC_WRITE,
-	//	FILE_SHARE_READ,
-	//	NULL,
-	//	OPEN_EXISTING,
-	//	FILE_ATTRIBUTE_NORMAL,
-	//	NULL);
-	//CheckForError(hMailslot != INVALID_HANDLE_VALUE);
-
+	// Abre instância para utilizar o pipe
 	hPipe = CreateFile(
 		lpszPipename,   // nome do pipe 
 		GENERIC_WRITE,  // acesso para escrita 
-		FILE_SHARE_WRITE,              // sem compartilhamento 
+		0,              // sem compartilhamento 
 		NULL,           // lpSecurityAttributes
 		OPEN_EXISTING,  // dwCreationDistribution 
 		0,              // dwFlagsAndAttributes 
 		NULL);          // hTemplate
-	//CheckForError(hPipe != INVALID_HANDLE_VALUE);
 
+	// Aguarda que o pipe esteja disponível
 	WaitNamedPipe(lpszPipename, NMPWAIT_USE_DEFAULT_WAIT);
 
 	do {
-		//system("cls");
 		printf("Escolha uma das opções abaixo para ativar ou bloquear a respectiva tarefa:\n");
 		printf("<P> - Leitura de dados do CLP\n");
 		printf("<S> - Leitura de dados do PCP\n");
@@ -200,6 +182,7 @@ int main() {
 		}
 		else if (nKey == 'c' || nKey == 'C') {
 			printf("Mensagem de limpeza de tela\n");
+			// Escreve no pipe
 			bStatus = WriteFile(hPipe, "CLEAR", 6, &dwSentBytes, NULL);
 			CheckForError(bStatus);
 		}
@@ -232,14 +215,8 @@ int main() {
 	CloseHandle(hManagementSemaphore);
 	CloseHandle(hDisplaySemaphore);
 
-	// Fecha handle do mailslot
-	//CloseHandle(hMailslot);
-
 	// Fecha handle do Pipe
 	CloseHandle(hPipe);
-
-	printf("\nAcione uma tecla para terminar\n");
-	_getch(); // Pare aqui, caso não esteja executando no ambiente MDS
 
 	return EXIT_SUCCESS;
 }
