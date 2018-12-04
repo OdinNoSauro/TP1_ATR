@@ -39,8 +39,8 @@ HANDLE l1Mutex,
 	   semMessage,
 	   hEscEvent,
 	   hEscThread,
-	   hMailslotEvent,
-	   hMailslot;
+	   hPipeEvent,
+	   hPipe;
 
 int offset = 0, modo = 0;
 
@@ -63,7 +63,8 @@ int main() {
           dwSentBytes;
   
 	BOOL bStatus;
-	
+	LPTSTR lpszPipename = "\\\\.\\pipe\\ManagementPipe";
+
 	// Criação dos mutexes
 	l1Mutex = CreateMutex(NULL, FALSE, "MutexList1");
 	l2Mutex = CreateMutex(NULL, FALSE, "MutexList2");
@@ -82,20 +83,32 @@ int main() {
 	semPCP = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "PCP");
 	semDisplay = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "Display");
 	semMessage = OpenSemaphore(SYNCHRONIZE | SEMAPHORE_MODIFY_STATE, NULL, "Message");
-	hMailslotEvent = OpenEvent(SYNCHRONIZE, FALSE, "MailslotEvent");
+	hPipeEvent = OpenEvent(SYNCHRONIZE, FALSE, "PipeEventDisplay");
 	// Aguarda que o mailslot seja criado pelo processo Management
 	printf("Aguardando criação do mailslot\n");
-	WaitForSingleObject(hMailslotEvent, INFINITE);
+	WaitForSingleObject(hPipeEvent, INFINITE);
+
+	hPipe = CreateFile(
+		lpszPipename,   // nome do pipe 
+		GENERIC_WRITE,  // acesso para escrita 
+		FILE_SHARE_WRITE,              // sem compartilhamento 
+		NULL,           // lpSecurityAttributes
+		OPEN_EXISTING,  // dwCreationDistribution 
+		0,              // dwFlagsAndAttributes 
+		NULL);          // hTemplate
+	//CheckForError(hPipe != INVALID_HANDLE_VALUE);
+
+	WaitNamedPipe(lpszPipename, NMPWAIT_USE_DEFAULT_WAIT);
 
 	// Criação do pseudo-arquivo do mailslot
-	hMailslot = CreateFile(
-		"\\\\.\\mailslot\\ManagementMailslot",
-		GENERIC_WRITE,
-		FILE_SHARE_READ,
-		NULL,
-		OPEN_EXISTING,
-		FILE_ATTRIBUTE_NORMAL,
-		NULL);
+	//hMailslot = CreateFile(
+	//	"\\\\.\\mailslot\\ManagementMailslot",
+	//	GENERIC_WRITE,
+	//	FILE_SHARE_READ,
+	//	NULL,
+	//	OPEN_EXISTING,
+	//	FILE_ATTRIBUTE_NORMAL,
+	//	NULL);
 	//CheckForError(hMailslot != INVALID_HANDLE_VALUE);
 
 	// Criação da tarefa de leitura do CLP
@@ -182,14 +195,14 @@ int main() {
 	CloseHandle(l2Mutex);
 
 	// Fecha handles dos eventos
-	CloseHandle(hMailslotEvent);
+	CloseHandle(hPipeEvent);
 	CloseHandle(hTimer1);
 	CloseHandle(hTimer2);
 	CloseHandle(msgDepositada1);
 	CloseHandle(msgDepositada2);
 
 	// Fecha handle do mailslot
-	CloseHandle(hMailslot);
+	CloseHandle(hPipe);
 
 	// Fecha handles dos semáforos
 	CloseHandle(semCLP);
@@ -384,7 +397,7 @@ DWORD WINAPI ThreadCapture() {
 			std::copy(s.begin(), s.end(), msg);
 			msg[s.size()] = '\0'; // don't forget the terminating
 			printf("%s\n",msg);
-		//	bStatus = WriteFile(hMailslot, msg, 58, &dwSentBytes, NULL);
+			bStatus = WriteFile(hPipe, msg, 58, &dwSentBytes, NULL);
 			//CheckForError(bStatus);
 			delete[] msg;
 			lista1.erase(it);	
